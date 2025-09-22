@@ -1,49 +1,63 @@
-import express from 'express';
-import cors from 'cors';
-import mongoose from 'mongoose';
+import express from "express";
+import mongoose, { connect } from "mongoose";
+import bodyParser from "body-parser";
+import cors from "cors";
+import dotenv from "dotenv";
 
+dotenv.config();
+const URI = process.env.MONGODB_URI;
 const app = express();
-app.use(cors());
+
 app.use(express.json());
 
-mongoose.connect("mongodb://127.0.0.1:27017/quizDB1",{
-    useNewUrlParser:true,
-    useUnifiedTopology:true
-}).then(()=>console.log("DB connected")).catch((err)=>console.log(err));
+app.use(cors());
 
+
+/*mongoose.connect("mongodb://localhost:27017/quizdb", {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+})
+.then(() => console.log("MongoDB connected successfully "))
+.catch((err) => console.error("MongoDB connection error ", err));
+*/
+async function ConnectDB() {
+    try{
+        await mongoose.connect(process.env.MONGODB_URI),{
+            dbName:"quizdb",
+            maxToolSize:80,
+            serverSelectionTimeoutMS:5000
+        }
+    
+    console.log("connected to mongodb atlas.");
+    }catch(err){
+        console.error("db connection error.",err.message);
+        process.exit(1);
+    }
+}
+ConnectDB();
 const resultSchema = new mongoose.Schema({
     name: String,
-    rollno:String,
+    roll_no: String,
     subject: String,
-    answers:Array,
-    score:Number
+    answers: [String] 
 });
-const Result= mongoose.model("Result",resultSchema);
+
+
+const Result = mongoose.model("Result", resultSchema);
 
 app.post("/submit", async (req, res) => {
-  try {
-    const { name, rollno, subject, answers ,score } = req.body;
-    console.log(req.body);
-    if (!name || !rollno || !subject || !answers || score==null) {
-      return res.status(400).json({ message: "Missing fields" });
+    try {
+        const {name,roll_no,subject,answers} = req.body;
+        const newResult=Result({name,roll_no,subject,answers});
+        await newResult.save();
+        res.json({message:"result saved successfully"});
+    } catch (err) {
+        res.status(400).json({ error: err.message });
     }
-    const newResult = new Result({ name, rollno, subject, answers,score});
-    await newResult.save();
-    res.json({ message: "Result submitted successfully" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
 });
 
-app.get("/result", async (req, res) => {
-  try {
-    const results = await Result.find();
-    res.json(results);
-  } catch (err) {
-    res.status(500).json({ message: "Server error" });
-  }
+
+const PORT = 5000;
+app.listen(process.env.PORT || 5000, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
-
-app.listen(5001,()=>console.log("server is running on port 5000"));
-
